@@ -7,8 +7,11 @@ public class BotonRitmo : MonoBehaviour
     public Color colorPresionado = new Color(0.5f, 0.5f, 0.5f, 1f);
     private Color colorOriginal;
 
+    public float ventanaPerfect = 0.08f;
+    public float ventanaGreat = 0.18f;
+
     private bool puedePresionar = false;
-    private GameObject notaActual;
+    private NoteObject notaActual;
 
     void Start()
     {
@@ -22,9 +25,9 @@ public class BotonRitmo : MonoBehaviour
         {
             sr.color = colorPresionado;
 
-            if (puedePresionar && notaActual != null)
+            if (puedePresionar && notaActual != null && notaActual.tipo != TipoNota.ParryFever)
             {
-                EvaluarPrecision();
+                EvaluarTiempo(false);
             }
         }
 
@@ -32,50 +35,95 @@ public class BotonRitmo : MonoBehaviour
         {
             sr.color = colorOriginal;
         }
+
+        if (Input.GetKeyDown(KeyCode.Space))
+        {
+            if (puedePresionar && notaActual != null && notaActual.tipo == TipoNota.ParryFever)
+            {
+                EvaluarTiempo(true);
+            }
+        }
     }
 
-    void EvaluarPrecision()
+    void EvaluarTiempo(bool esParry)
     {
-        // Calculamos la distancia vertical (eje Y) entre la nota y este botón
-        float distancia = Mathf.Abs(notaActual.transform.position.y - transform.position.y);
+        Conductor cond = notaActual.conductor;
+        float tiempoExactoNota = notaActual.beatOfThisNote * cond.secPerBeat;
+        float diferenciaTiempo = Mathf.Abs(cond.songPosition - tiempoExactoNota);
 
-        if (distancia <= 0.2f)
+        if (diferenciaTiempo <= ventanaGreat)
         {
-            Debug.Log("<color=cyan>¡PERFECTO!</color>");
-            // Aquí sumaremos 100 puntos
-        }
-        else if (distancia <= 0.5f)
-        {
-            Debug.Log("<color=green>¡BIEN!</color>");
-            // Aquí sumaremos 50 puntos
+            string calificacion = diferenciaTiempo <= ventanaPerfect ? "PERFECT" : "GREAT";
+            int puntos = diferenciaTiempo <= ventanaPerfect ? 100 : 50;
+
+            if (esParry)
+            {
+                calificacion = "PARRY!";
+                puntos = 250;
+            }
+
+            notaActual.golpesRestantes--;
+
+            if (notaActual.golpesRestantes > 0)
+            {
+                if (notaActual.tipo == TipoNota.CambioCarril)
+                {
+                    int nuevoCarril = (notaActual.carrilActual + 1) % cond.hitZones.Length;
+                    notaActual.ActivarRebote(nuevoCarril, 2f, 0.35f);
+                }
+                else if (notaActual.tipo == TipoNota.DobleGolpe)
+                {
+                    notaActual.ActivarRebote(notaActual.carrilActual, 1f, 0.6f);
+                }
+
+                cond.SumarPuntos(calificacion, puntos);
+                puedePresionar = false;
+                notaActual = null;
+            }
+            else
+            {
+                notaActual.fueGolpeada = true;
+                cond.SumarPuntos(calificacion, puntos);
+                Destroy(notaActual.gameObject);
+                puedePresionar = false;
+                notaActual = null;
+            }
         }
         else
         {
-            Debug.Log("<color=red>¡FALLO!</color>");
-            // Aquí romperemos el combo
+            notaActual.fueGolpeada = true;
+            cond.RegistrarMiss();
+            Destroy(notaActual.gameObject);
+            puedePresionar = false;
+            notaActual = null;
         }
-
-        // Destruimos la nota tras golpearla
-        Destroy(notaActual);
-        puedePresionar = false;
     }
 
     private void OnTriggerEnter2D(Collider2D collision)
     {
-        if (collision.CompareTag("Nota"))
+        NoteObject notaEntrante = collision.GetComponent<NoteObject>();
+        if (notaEntrante != null)
         {
             puedePresionar = true;
-            notaActual = collision.gameObject;
+            notaActual = notaEntrante;
         }
     }
 
     private void OnTriggerExit2D(Collider2D collision)
     {
-        if (collision.CompareTag("Nota"))
+        NoteObject notaSaliente = collision.GetComponent<NoteObject>();
+        if (notaSaliente != null)
         {
-            puedePresionar = false;
-            notaActual = null;
-            Debug.Log("<color=red>¡DEJASTE PASAR LA NOTA!</color>");
+            if (!notaSaliente.fueGolpeada && notaSaliente.conductor.songPositionInBeats > notaSaliente.beatOfThisNote)
+            {
+                notaSaliente.conductor.RegistrarMiss();
+            }
+
+            if (notaActual == notaSaliente)
+            {
+                puedePresionar = false;
+                notaActual = null;
+            }
         }
     }
 }

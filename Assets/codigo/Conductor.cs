@@ -1,5 +1,7 @@
 using UnityEngine;
+using UnityEngine.UI;
 using System.Collections.Generic;
+using TMPro;
 
 public class Conductor : MonoBehaviour
 {
@@ -10,42 +12,79 @@ public class Conductor : MonoBehaviour
     public float dspSongTime;
     public AudioSource musicSource;
     public float beatsAdvance = 4f;
-
     public float offset = 0f;
     public float musicStartDelay = 3f;
 
-    public TextAsset archivoOsu; 
+    public TextAsset mapaFacil;
+    public TextAsset mapaDificil;
+    public bool jugarEnDificil = false;
+
     public GameObject notePrefab;
     public Transform[] spawnPoints;
     public Transform[] hitZones;
     public List<Note> mapNotes = new List<Note>();
     public int currentNoteIndex = 0;
 
+    public int puntuacion = 0;
+    public int combo = 0;
+
+    public TMP_Text textoPuntos;
+    public TMP_Text textoCombo;
+    public TMP_Text textoCalificacion;
+
+    public Slider barraFever;
+    public TMP_Text textoFever;
+    public float feverActual = 0f;
+    public float feverMaximo = 300f;
+    public float duracionFever = 6f;
+    public float cargaPerfect = 10f;
+    public float cargaGreat = 5f;
+    public bool enFever = false;
+    private float tiempoRestanteFever = 0f;
+
+    public int frecuenciaDobleGolpe = 6;
+    public int frecuenciaCambioCarril = 10;
+    public int frecuenciaParryEnFever = 4;
+
     [System.Serializable]
     public struct Note
     {
         public float targetBeat;
         public int laneIndex;
+        public TipoNota tipo;
     }
 
     void Start()
     {
         secPerBeat = 60f / bpm;
-        CargarMapaOsu(); // Genera la lista antes de que empiece la música
+        CargarMapaOsu();
+        dspSongTime = (float)AudioSettings.dspTime + musicStartDelay;
+        musicSource.PlayScheduled(dspSongTime);
 
-        dspSongTime = (float)AudioSettings.dspTime;
-        musicSource.Play();
+        if (barraFever != null)
+        {
+            barraFever.maxValue = feverMaximo;
+            barraFever.value = 0f;
+        }
+
+        if (textoFever != null)
+        {
+            textoFever.text = "";
+        }
+
+        ActualizarUI("", Color.white);
     }
 
     void CargarMapaOsu()
     {
         mapNotes.Clear();
-        string[] lineas = archivoOsu.text.Split('\n');
+        TextAsset archivoAUsar = jugarEnDificil ? mapaDificil : mapaFacil;
+        string[] lineas = archivoAUsar.text.Split('\n');
         bool leyendoNotas = false;
+        int contadorNotas = 0;
 
         foreach (string linea in lineas)
         {
-            // Busca dónde empiezan las notas en el archivo
             if (linea.Trim() == "[HitObjects]")
             {
                 leyendoNotas = true;
@@ -54,23 +93,30 @@ public class Conductor : MonoBehaviour
 
             if (leyendoNotas && !string.IsNullOrWhiteSpace(linea))
             {
-                // osu! guarda los datos así: x,y,tiempoEnMs,tipo,sonido...
                 string[] datos = linea.Split(',');
-
-                if (datos.Length >= 3)
+                if (datos.Length >= 5)
                 {
-                    // 1. Calcular el carril basado en la posición X (osu! usa un ancho de 0 a 512)
+                    contadorNotas++;
                     float x = float.Parse(datos[0]);
                     int carril = 0;
-                    if (x > 170f) carril = 1; // Centro
-                    if (x > 341f) carril = 2; // Derecha
+                    if (x > 170f) carril = 1;
+                    if (x > 341f) carril = 2;
 
-                    // 2. Convertir el tiempo de milisegundos a Beats para nuestro sistema
                     float tiempoEnSegundos = float.Parse(datos[2]) / 1000f;
                     float beatExacto = tiempoEnSegundos / secPerBeat;
 
-                    // 3. Añadir a la lista
-                    mapNotes.Add(new Note { targetBeat = beatExacto, laneIndex = carril });
+                    TipoNota tipoAsignado = TipoNota.Normal;
+
+                    if (frecuenciaCambioCarril > 0 && contadorNotas % frecuenciaCambioCarril == 0)
+                    {
+                        tipoAsignado = TipoNota.CambioCarril;
+                    }
+                    else if (frecuenciaDobleGolpe > 0 && contadorNotas % frecuenciaDobleGolpe == 0)
+                    {
+                        tipoAsignado = TipoNota.DobleGolpe;
+                    }
+
+                    mapNotes.Add(new Note { targetBeat = beatExacto, laneIndex = carril, tipo = tipoAsignado });
                 }
             }
         }
@@ -78,23 +124,134 @@ public class Conductor : MonoBehaviour
 
     void Update()
     {
-        songPosition = (float)(AudioSettings.dspTime - dspSongTime);
+        songPosition = (float)(AudioSettings.dspTime - dspSongTime) - offset;
         songPositionInBeats = songPosition / secPerBeat;
 
         if (currentNoteIndex < mapNotes.Count)
         {
             if (mapNotes[currentNoteIndex].targetBeat < songPositionInBeats + beatsAdvance)
             {
-                SpawnNote(mapNotes[currentNoteIndex].laneIndex, mapNotes[currentNoteIndex].targetBeat);
+                TipoNota tipoFinal = mapNotes[currentNoteIndex].tipo;
+
+                if (enFever && frecuenciaParryEnFever > 0 && currentNoteIndex % frecuenciaParryEnFever == 0)
+                {
+                    tipoFinal = TipoNota.ParryFever;
+                }
+
+                SpawnNote(mapNotes[currentNoteIndex].laneIndex, mapNotes[currentNoteIndex].targetBeat, tipoFinal);
                 currentNoteIndex++;
+            }
+        }
+
+        if (enFever)
+        {
+            tiempoRestanteFever -= Time.deltaTime;
+            feverActual = (tiempoRestanteFever / duracionFever) * feverMaximo;
+
+            if (barraFever != null)
+            {
+                barraFever.value = feverActual;
+            }
+
+            if (tiempoRestanteFever <= 0f)
+            {
+                enFever = false;
+                feverActual = 0f;
+
+                if (barraFever != null)
+                {
+                    barraFever.value = 0f;
+                }
+
+                if (textoFever != null)
+                {
+                    textoFever.text = "";
+                }
             }
         }
     }
 
-    void SpawnNote(int lane, float targetBeat)
+    void SpawnNote(int lane, float targetBeat, TipoNota tipo)
     {
         GameObject note = Instantiate(notePrefab);
         NoteObject noteScript = note.GetComponent<NoteObject>();
-        noteScript.Initialize(targetBeat, this, spawnPoints[lane].position, hitZones[lane].position);
+        noteScript.Initialize(targetBeat, this, lane, tipo);
+    }
+
+    public void SumarPuntos(string calificacion, int puntosBase)
+    {
+        combo++;
+        int multiplicadorFever = enFever ? 2 : 1;
+        puntuacion += puntosBase * combo * multiplicadorFever;
+
+        if (!enFever)
+        {
+            if (calificacion == "PERFECT")
+            {
+                feverActual += cargaPerfect;
+            }
+            else if (calificacion == "GREAT")
+            {
+                feverActual += cargaGreat;
+            }
+
+            if (feverActual >= feverMaximo)
+            {
+                ActivarFever();
+            }
+            else if (barraFever != null)
+            {
+                barraFever.value = feverActual;
+            }
+        }
+
+        Color colorTexto = Color.green;
+        if (calificacion == "PERFECT") colorTexto = Color.cyan;
+        else if (calificacion == "PARRY!") colorTexto = Color.yellow;
+
+        string textoMostrar = enFever ? calificacion + " x2" : calificacion;
+        ActualizarUI(textoMostrar, colorTexto);
+    }
+
+    void ActivarFever()
+    {
+        enFever = true;
+        feverActual = feverMaximo;
+        tiempoRestanteFever = duracionFever;
+
+        if (barraFever != null)
+        {
+            barraFever.value = feverMaximo;
+        }
+
+        if (textoFever != null)
+        {
+            textoFever.text = "FEVER";
+            textoFever.color = Color.yellow;
+        }
+    }
+
+    public void RegistrarMiss()
+    {
+        combo = 0;
+        ActualizarUI("MISS", Color.red);
+    }
+
+    void ActualizarUI(string calificacion, Color colorCalificacion)
+    {
+        if (textoPuntos != null) textoPuntos.text = "Puntos: " + puntuacion;
+        if (textoCombo != null) textoCombo.text = combo > 0 ? "Combo: x" + combo : "";
+        if (textoCalificacion != null)
+        {
+            textoCalificacion.text = calificacion;
+            textoCalificacion.color = colorCalificacion;
+            CancelInvoke("LimpiarCalificacion");
+            Invoke("LimpiarCalificacion", 0.5f);
+        }
+    }
+
+    void LimpiarCalificacion()
+    {
+        if (textoCalificacion != null) textoCalificacion.text = "";
     }
 }
