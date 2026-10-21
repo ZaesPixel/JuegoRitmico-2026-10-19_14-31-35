@@ -20,6 +20,10 @@ public class Conductor : MonoBehaviour
     public bool jugarEnDificil = false;
 
     public GameObject notePrefab;
+    public GameObject prefabCambioCarril;
+    public GameObject prefabDobleGolpe;
+    public GameObject prefabParryFever;
+
     public Transform[] spawnPoints;
     public Transform[] hitZones;
     public List<Note> mapNotes = new List<Note>();
@@ -42,9 +46,9 @@ public class Conductor : MonoBehaviour
     public bool enFever = false;
     private float tiempoRestanteFever = 0f;
 
-    public int frecuenciaDobleGolpe = 6;
-    public int frecuenciaCambioCarril = 10;
-    public int frecuenciaParryEnFever = 4;
+    public int frecuenciaDobleGolpe = 5;
+    public int frecuenciaCambioCarril = 8;
+    public int frecuenciaParryEnFever = 3;
 
     [System.Serializable]
     public struct Note
@@ -56,6 +60,10 @@ public class Conductor : MonoBehaviour
 
     void Start()
     {
+        if (frecuenciaDobleGolpe <= 0) frecuenciaDobleGolpe = 5;
+        if (frecuenciaCambioCarril <= 0) frecuenciaCambioCarril = 8;
+        if (frecuenciaParryEnFever <= 0) frecuenciaParryEnFever = 3;
+
         secPerBeat = 60f / bpm;
         CargarMapaOsu();
         dspSongTime = (float)AudioSettings.dspTime + musicStartDelay;
@@ -94,7 +102,7 @@ public class Conductor : MonoBehaviour
             if (leyendoNotas && !string.IsNullOrWhiteSpace(linea))
             {
                 string[] datos = linea.Split(',');
-                if (datos.Length >= 5)
+                if (datos.Length >= 3)
                 {
                     contadorNotas++;
                     float x = float.Parse(datos[0]);
@@ -173,7 +181,22 @@ public class Conductor : MonoBehaviour
 
     void SpawnNote(int lane, float targetBeat, TipoNota tipo)
     {
-        GameObject note = Instantiate(notePrefab);
+        GameObject prefabAUsar = notePrefab;
+
+        if (tipo == TipoNota.CambioCarril && prefabCambioCarril != null)
+        {
+            prefabAUsar = prefabCambioCarril;
+        }
+        else if (tipo == TipoNota.DobleGolpe && prefabDobleGolpe != null)
+        {
+            prefabAUsar = prefabDobleGolpe;
+        }
+        else if (tipo == TipoNota.ParryFever && prefabParryFever != null)
+        {
+            prefabAUsar = prefabParryFever;
+        }
+
+        GameObject note = Instantiate(prefabAUsar);
         NoteObject noteScript = note.GetComponent<NoteObject>();
         noteScript.Initialize(targetBeat, this, lane, tipo);
     }

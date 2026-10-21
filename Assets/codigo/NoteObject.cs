@@ -20,6 +20,11 @@ public class NoteObject : MonoBehaviour
     public int carrilActual;
     public int golpesRestantes = 1;
 
+    public Sprite spriteNormal;
+    public Sprite spriteCambioCarril;
+    public Sprite spriteDobleGolpe;
+    public Sprite spriteParryFever;
+
     private bool enRebote = false;
     private float beatInicioRebote;
     private float duracionReboteBeats;
@@ -41,7 +46,7 @@ public class NoteObject : MonoBehaviour
         golpesRestantes = (tipo == TipoNota.CambioCarril || tipo == TipoNota.DobleGolpe) ? 2 : 1;
 
         sr = GetComponent<SpriteRenderer>();
-        ActualizarColor();
+        ActualizarFigura();
     }
 
     public void ActivarRebote(int nuevoCarril, float beatsExtra, float alturaRetorno)
@@ -59,25 +64,29 @@ public class NoteObject : MonoBehaviour
         posCumbre = Vector3.Lerp(startPos, endPos, alturaRetorno);
 
         tipo = TipoNota.Normal;
-        ActualizarColor();
+        ActualizarFigura();
     }
 
-    void ActualizarColor()
+    void ActualizarFigura()
     {
         if (sr == null) return;
 
         switch (tipo)
         {
             case TipoNota.Normal:
+                if (spriteNormal != null) sr.sprite = spriteNormal;
                 sr.color = Color.white;
                 break;
             case TipoNota.CambioCarril:
+                if (spriteCambioCarril != null) sr.sprite = spriteCambioCarril;
                 sr.color = Color.magenta;
                 break;
             case TipoNota.DobleGolpe:
+                if (spriteDobleGolpe != null) sr.sprite = spriteDobleGolpe;
                 sr.color = new Color(0.2f, 0.6f, 1f);
                 break;
             case TipoNota.ParryFever:
+                if (spriteParryFever != null) sr.sprite = spriteParryFever;
                 sr.color = Color.yellow;
                 break;
         }

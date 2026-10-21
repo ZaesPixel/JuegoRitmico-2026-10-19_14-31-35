@@ -1234,6 +1234,9 @@ MonoBehaviour:
   mapaDificil: {fileID: 4900000, guid: cf9e65c80c17e414c9bdb25cad2c85d4, type: 3}
   jugarEnDificil: 0
   notePrefab: {fileID: 1701871174841363055, guid: 246b0f80af7d49a419728e67c8044525, type: 3}
+  prefabCambioCarril: {fileID: 5933590092603604551, guid: 4c3a11bc247d5d744ad46caa26bbbebf, type: 3}
+  prefabDobleGolpe: {fileID: 5642161605728477764, guid: dd98b5dc9262f4c4198c05959e44158e, type: 3}
+  prefabParryFever: {fileID: 546036312653098241, guid: 5fc0e207ba9e87542baf608b8ebcbb03, type: 3}
   spawnPoints:
   - {fileID: 1461961444}
   - {fileID: 347776032}

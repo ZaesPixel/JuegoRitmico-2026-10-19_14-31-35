@@ -1,2 +1,16 @@
 fileFormatVersion: 2
 guid: a8ce2450515c2b749b77361ccfeddf06
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - conductor: {instanceID: 0}
+  - spriteNormal: {fileID: -8826169882156238323, guid: f93dcc2ee65c2614d984ca7bae839d78, type: 3}
+  - spriteCambioCarril: {fileID: 850543923579291309, guid: 8bfcde4e7b547414883af6e2c74238c8, type: 3}
+  - spriteDobleGolpe: {fileID: -9120288921763123678, guid: 6c6a3923c52e6f24da3baa93c6d5d230, type: 3}
+  - spriteParryFever: {fileID: -1160124911327065023, guid: af9a9d93b6bc1df4383c89e41997d70d, type: 3}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
